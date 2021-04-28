@@ -2,23 +2,28 @@ package org.github.xaoseric.csvmigrator;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.ibatis.jdbc.ScriptRunner;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.Reader;
+import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
 
 public class CSVMigrator
 {
-    private static CSVMigrator instance;
 
+    public static File configFile = new File("config.json");
     private static Config config;
     private static HikariDataSource dataSource;
-    private static Logger logger = Logger.getLogger(CSVMigrator.class.getName());
+    public static final Logger logger = LogManager.getLogger("CSVMigrator");
 
     public static void main(String[] args) {
-
         // load config
         loadConfig();
 
@@ -36,16 +41,37 @@ public class CSVMigrator
         try {
             dataSource = new HikariDataSource(hikariConfig);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to start Hikari Data Source!", e);
+            logger.error("Failed to start Hikari Data Source!", e);
             shutdown();
         }
 
         try {
-            Exporter.ExportTitanicData();
-        } catch (IOException|SQLException e) {
-            logger.log(Level.SEVERE, "Failed to migrate titanic csv data", e);
+            // Run sql scripts because less work
+            logger.info("Running SQL Migrations");
+
+            // Initialize the script runner
+            ScriptRunner sr = new ScriptRunner(dataSource.getConnection());
+
+            // Create teh reader objects
+            Reader titanicReader = new BufferedReader(new FileReader("./sql/titanic.sql"));
+
+            // Run the scripts
+            sr.runScript(titanicReader);
+        } catch (SQLException|IOException e) {
+            logger.error("Failed to run sql migrations", e);
             shutdown();
         }
+
+        try {
+            logger.info("Exporting Titanic CSV Data");
+            Exporter.ExportTitanicData();
+        } catch (IOException|SQLException e) {
+            logger.error("Failed to migrate titanic csv data", e);
+            shutdown();
+        }
+
+        logger.info("Completed Titanic CSV Data Export To MySQL!");
+        shutdown();
     }
 
     /**
@@ -55,13 +81,13 @@ public class CSVMigrator
         //load our config
         config = new Config();
 
-        if (!config.getConfigFile().exists()) {
+        if (!configFile.exists()) {
             try {
-                config.getConfigFile().createNewFile();
+                configFile.createNewFile();
                 config.save();
                 logger.info("New config generated! Please enter the settings and try again");
             } catch (IOException ex) {
-                logger.log(Level.SEVERE, "Failed to create new settings.json file", ex);
+                logger.error("Failed to create new config.json file", ex);
                 shutdown();
             }
         }
@@ -70,7 +96,7 @@ public class CSVMigrator
             logger.info("Loading config...");
             config.load();
         } catch (IOException ex) {
-            logger.log(Level.SEVERE, "Failed to load config", ex);
+            logger.error("Failed to load config", ex);
             shutdown();
         }
     }

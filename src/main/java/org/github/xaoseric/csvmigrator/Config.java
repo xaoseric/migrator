@@ -8,9 +8,7 @@ import java.io.*;
 public class Config
 {
     private int port, sqlMinConnections, sqlMaxConnections;
-    public String host, database, user, password;
-
-    private File configFile = new File("config.json");
+    private String host, database, user, password;
 
     public Config() {
         host = "";
@@ -24,7 +22,7 @@ public class Config
 
     public void save() throws IOException {
         BufferedWriter fout;
-        fout = new BufferedWriter(new FileWriter(configFile));
+        fout = new BufferedWriter(new FileWriter(CSVMigrator.configFile));
         fout.write(new GsonBuilder().setPrettyPrinting().create().toJson(this));
         fout.close();
     }
@@ -33,7 +31,7 @@ public class Config
         RandomAccessFile fin;
         byte[] buffer;
 
-        fin = new RandomAccessFile(configFile, "r");
+        fin = new RandomAccessFile(CSVMigrator.configFile, "r");
         buffer = new byte[(int) fin.length()];
         fin.readFully(buffer);
         fin.close();
@@ -73,9 +71,5 @@ public class Config
 
     public int getSqlMaxConnections() {
         return sqlMaxConnections;
-    }
-
-    public File getConfigFile() {
-        return configFile;
     }
 }
